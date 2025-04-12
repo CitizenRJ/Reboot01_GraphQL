@@ -87,35 +87,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Calculate total XP
         const totalXP = transactions.reduce((sum, t) => sum + t.amount, 0);
         
-        // Group XP by project path
-        const xpByProject = transactions.reduce((acc, t) => {
-            // Extract project name from path
-            const pathParts = t.path.split('/');
-            const projectName = pathParts[pathParts.length - 1];
-            
-            if (!acc[projectName]) {
-                acc[projectName] = 0;
-            }
-            acc[projectName] += t.amount;
-            return acc;
-        }, {});
-        
         // Display XP info
-        let xpByProjectHTML = '';
-        Object.entries(xpByProject)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5)
-            .forEach(([project, amount]) => {
-                xpByProjectHTML += `<p><strong>${project}:</strong> ${amount} XP</p>`;
-            });
-        
-        document.getElementById('xp-info').innerHTML = `
-            <div class="info-card">
-                <p><strong>Total XP:</strong> ${totalXP}</p>
-                <h4>Top Projects by XP:</h4>
-                ${xpByProjectHTML}
-            </div>
-        `;
+        displayXpInfo(totalXP, transactions);
         
         // 3. NESTED QUERY - Get project results with object details
         const progressQuery = `{
@@ -194,6 +167,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         alert('Failed to load profile data. Please try logging in again.');
     }
 });
+
+// For the main XP display section
+function displayXpInfo(totalXp, transactions) {
+    const xpInfoContainer = document.getElementById('xp-info');
+    xpInfoContainer.innerHTML = '';
+    
+    // Format XP in kB (divide by 1000)
+    const formattedXp = (totalXp / 1000).toFixed(1) + ' kB';
+    
+    const infoCard = document.createElement('div');
+    infoCard.className = 'info-card';
+    
+    // Display the formatted XP value
+    infoCard.innerHTML = `
+        <div class="stats-row">
+            <div class="stat-box">
+                <div class="stat-value">${formattedXp}</div>
+                <div class="stat-label">Total XP</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">${transactions.length}</div>
+                <div class="stat-label">XP Transactions</div>
+            </div>
+        </div>
+    `;
+    
+    xpInfoContainer.appendChild(infoCard);
+}
 
 // SVG Graph 1: XP Progression Over Time
 function createXpProgressGraph(transactions) {
@@ -341,7 +342,7 @@ function createXpProgressGraph(transactions) {
         
         // Label
         const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        label.textContent = Math.round(xpValue).toLocaleString();
+        label.textContent = formatXpLabel(xpValue);
         label.setAttribute('x', padding - 10);
         label.setAttribute('y', y + 4);
         label.setAttribute('text-anchor', 'end');
@@ -416,7 +417,7 @@ function createXpProgressGraph(transactions) {
             rect.setAttribute('fill', 'rgba(0,0,0,0.7)');
             
             const text1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            text1.textContent = `XP: ${point.xp.toLocaleString()}`;
+            text1.textContent = `XP: ${formatXpLabel(point.xp)}`;
             text1.setAttribute('x', x + 20);
             text1.setAttribute('y', y - 12);
             text1.setAttribute('fill', 'white');
