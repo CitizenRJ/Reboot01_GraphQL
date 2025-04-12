@@ -1,3 +1,62 @@
+// Helper function to format XP values in kB
+function formatXpLabel(xp) {
+    return (xp / 1000).toFixed(1) + ' kB';
+}
+
+// Helper function to create SVG elements
+function createSvgElement(type, attributes, parent) {
+    const element = document.createElementNS('http://www.w3.org/2000/svg', type);
+    for (const [key, value] of Object.entries(attributes)) {
+        if (key === 'textContent') {
+            element.textContent = value;
+        } else {
+            element.setAttribute(key, value);
+        }
+    }
+    if (parent) {
+        parent.appendChild(element);
+    }
+    return element;
+}
+
+// Helper function for SVG graph initialization
+function setupSvgGraph(svgId, title, data, emptyMessage = 'No data available') {
+    const svg = document.getElementById(svgId);
+    const width = svg.width.baseVal.value;
+    const height = svg.height.baseVal.value;
+    
+    // Clear existing content
+    svg.innerHTML = '';
+    
+    // Check if there's data to display
+    if (!data || (Array.isArray(data) && data.length === 0)) {
+        createSvgElement('text', {
+            x: width / 2,
+            y: height / 2,
+            'text-anchor': 'middle',
+            'font-size': '16px',
+            textContent: emptyMessage
+        }, svg);
+        return null;
+    }
+    
+    // Add title
+    createSvgElement('text', {
+        x: width / 2,
+        y: 30,
+        'text-anchor': 'middle',
+        'font-size': '16px',
+        'font-weight': 'bold',
+        textContent: title
+    }, svg);
+    
+    return {
+        svg,
+        width,
+        height
+    };
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     // Authentication check
     const token = localStorage.getItem('jwtToken');
@@ -87,8 +146,35 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Calculate total XP
         const totalXP = transactions.reduce((sum, t) => sum + t.amount, 0);
         
+        // Group XP by project path
+        const xpByProject = transactions.reduce((acc, t) => {
+            // Extract project name from path
+            const pathParts = t.path.split('/');
+            const projectName = pathParts[pathParts.length - 1];
+            
+            if (!acc[projectName]) {
+                acc[projectName] = 0;
+            }
+            acc[projectName] += t.amount;
+            return acc;
+        }, {});
+        
         // Display XP info
-        displayXpInfo(totalXP, transactions);
+        let xpByProjectHTML = '';
+        Object.entries(xpByProject)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .forEach(([project, amount]) => {
+                xpByProjectHTML += `<p><strong>${project}:</strong> ${formatXpLabel(amount)}</p>`;
+            });
+        
+        document.getElementById('xp-info').innerHTML = `
+            <div class="info-card">
+                <p><strong>Total XP:</strong> ${formatXpLabel(totalXP)}</p>
+                <h4>Top Projects by XP:</h4>
+                ${xpByProjectHTML}
+            </div>
+        `;
         
         // 3. NESTED QUERY - Get project results with object details
         const progressQuery = `{
@@ -168,45 +254,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// For the main XP display section
-function displayXpInfo(totalXp, transactions) {
-    const xpInfoContainer = document.getElementById('xp-info');
-    xpInfoContainer.innerHTML = '';
-    
-    // Format XP in kB (divide by 1000)
-    const formattedXp = (totalXp / 1000).toFixed(1) + ' kB';
-    
-    const infoCard = document.createElement('div');
-    infoCard.className = 'info-card';
-    
-    // Display the formatted XP value
-    infoCard.innerHTML = `
-        <div class="stats-row">
-            <div class="stat-box">
-                <div class="stat-value">${formattedXp}</div>
-                <div class="stat-label">Total XP</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-value">${transactions.length}</div>
-                <div class="stat-label">XP Transactions</div>
-            </div>
-        </div>
-    `;
-    
-    xpInfoContainer.appendChild(infoCard);
-}
-
 // SVG Graph 1: XP Progression Over Time
 function createXpProgressGraph(transactions) {
-    const svg = document.getElementById('xp-time-graph');
-    const width = svg.width.baseVal.value;
-    const height = svg.height.baseVal.value;
-    const padding = 60;
-    
-    // Clear existing content
-    svg.innerHTML = '';
-    
-    // Sort transactions by date and calculate cumulative XP
+    // Sort transactions and calculate cumulative XP
     let cumulativeXP = 0;
     const dataPoints = transactions.map(t => {
         cumulativeXP += t.amount;
@@ -216,16 +266,18 @@ function createXpProgressGraph(transactions) {
         };
     });
     
-    if (dataPoints.length === 0) {
-        const noDataText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        noDataText.textContent = 'No XP data available';
-        noDataText.setAttribute('x', width / 2);
-        noDataText.setAttribute('y', height / 2);
-        noDataText.setAttribute('text-anchor', 'middle');
-        noDataText.setAttribute('font-size', '16px');
-        svg.appendChild(noDataText);
-        return;
-    }
+    // Initialize SVG with common setup logic
+    const setup = setupSvgGraph(
+        'xp-time-graph', 
+        'XP Progression Over Time',
+        dataPoints,
+        'No XP data available'
+    );
+    
+    if (!setup) return; // No data to display
+    
+    const { svg, width, height } = setup;
+    const padding = 60;
     
     // Calculate scales
     const minDate = dataPoints[0].date;
@@ -242,58 +294,53 @@ function createXpProgressGraph(transactions) {
     };
     
     // Create axes
-    const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    xAxis.setAttribute('x1', padding);
-    xAxis.setAttribute('y1', height - padding);
-    xAxis.setAttribute('x2', width - padding);
-    xAxis.setAttribute('y2', height - padding);
-    xAxis.setAttribute('stroke', '#333');
-    xAxis.setAttribute('stroke-width', '2');
+    createSvgElement('line', {
+        x1: padding,
+        y1: height - padding,
+        x2: width - padding,
+        y2: height - padding,
+        stroke: '#333',
+        'stroke-width': '2'
+    }, svg);
     
-    const yAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    yAxis.setAttribute('x1', padding);
-    yAxis.setAttribute('y1', padding);
-    yAxis.setAttribute('x2', padding);
-    yAxis.setAttribute('y2', height - padding);
-    yAxis.setAttribute('stroke', '#333');
-    yAxis.setAttribute('stroke-width', '2');
-    
-    svg.appendChild(xAxis);
-    svg.appendChild(yAxis);
+    createSvgElement('line', {
+        x1: padding,
+        y1: padding,
+        x2: padding,
+        y2: height - padding,
+        stroke: '#333',
+        'stroke-width': '2'
+    }, svg);
     
     // Add axis labels
-    const xLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    xLabel.textContent = 'Time';
-    xLabel.setAttribute('x', width / 2);
-    xLabel.setAttribute('y', height - 15);
-    xLabel.setAttribute('text-anchor', 'middle');
+    createSvgElement('text', {
+        x: width / 2,
+        y: height - 15,
+        'text-anchor': 'middle',
+        textContent: 'Time'
+    }, svg);
     
-    const yLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    yLabel.textContent = 'Total XP';
-    yLabel.setAttribute('x', 20);
-    yLabel.setAttribute('y', height / 2);
-    yLabel.setAttribute('transform', `rotate(-90, 20, ${height/2})`);
-    yLabel.setAttribute('text-anchor', 'middle');
+    createSvgElement('text', {
+        x: 20,
+        y: height / 2,
+        transform: `rotate(-90, 20, ${height/2})`,
+        'text-anchor': 'middle',
+        textContent: 'Total XP'
+    }, svg);
     
-    svg.appendChild(xLabel);
-    svg.appendChild(yLabel);
-    
-    // Add axis ticks and values
     // X-axis (time)
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const dateRange = maxDate - minDate;
     const dayRange = dateRange / (1000 * 60 * 60 * 24);
     
-    // Choose appropriate time intervals based on date range
+    // Choose appropriate time intervals
     let timePoints = [];
     if (dayRange <= 30) {
-        // For short periods, show individual days
         for (let i = 0; i <= dayRange; i += Math.max(1, Math.floor(dayRange / 5))) {
             const date = new Date(minDate.getTime() + i * 24 * 60 * 60 * 1000);
             timePoints.push(date);
         }
     } else {
-        // For longer periods, show months
         let currentDate = new Date(minDate);
         while (currentDate <= maxDate) {
             timePoints.push(new Date(currentDate));
@@ -305,61 +352,59 @@ function createXpProgressGraph(transactions) {
         const x = xScale(date);
         
         // Tick mark
-        const tick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        tick.setAttribute('x1', x);
-        tick.setAttribute('y1', height - padding);
-        tick.setAttribute('x2', x);
-        tick.setAttribute('y2', height - padding + 5);
-        tick.setAttribute('stroke', '#333');
+        createSvgElement('line', {
+            x1: x,
+            y1: height - padding,
+            x2: x,
+            y2: height - padding + 5,
+            stroke: '#333'
+        }, svg);
         
         // Label
-        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        label.textContent = dayRange <= 30 
-            ? `${date.getDate()}/${date.getMonth() + 1}` 
-            : `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-        label.setAttribute('x', x);
-        label.setAttribute('y', height - padding + 20);
-        label.setAttribute('text-anchor', 'middle');
-        label.setAttribute('font-size', '12px');
-        
-        svg.appendChild(tick);
-        svg.appendChild(label);
+        createSvgElement('text', {
+            x: x,
+            y: height - padding + 20,
+            'text-anchor': 'middle',
+            'font-size': '12px',
+            textContent: dayRange <= 30 
+                ? `${date.getDate()}/${date.getMonth() + 1}` 
+                : `${monthNames[date.getMonth()]} ${date.getFullYear()}`
+        }, svg);
     });
     
-    // Y-axis (XP)
+    // Y-axis (XP) with formatted values
     const yTicks = 5;
     for (let i = 0; i <= yTicks; i++) {
         const xpValue = (maxXP / yTicks) * i;
         const y = yScale(xpValue);
         
         // Tick mark
-        const tick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        tick.setAttribute('x1', padding);
-        tick.setAttribute('y1', y);
-        tick.setAttribute('x2', padding - 5);
-        tick.setAttribute('y2', y);
-        tick.setAttribute('stroke', '#333');
+        createSvgElement('line', {
+            x1: padding,
+            y1: y,
+            x2: padding - 5,
+            y2: y,
+            stroke: '#333'
+        }, svg);
         
-        // Label
-        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        label.textContent = formatXpLabel(xpValue);
-        label.setAttribute('x', padding - 10);
-        label.setAttribute('y', y + 4);
-        label.setAttribute('text-anchor', 'end');
-        label.setAttribute('font-size', '12px');
+        // Label with kB format
+        createSvgElement('text', {
+            x: padding - 10,
+            y: y + 4,
+            'text-anchor': 'end',
+            'font-size': '12px',
+            textContent: formatXpLabel(xpValue)
+        }, svg);
         
-        svg.appendChild(tick);
-        svg.appendChild(label);
-        
-        // Optional: Grid line
-        const gridLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        gridLine.setAttribute('x1', padding);
-        gridLine.setAttribute('y1', y);
-        gridLine.setAttribute('x2', width - padding);
-        gridLine.setAttribute('y2', y);
-        gridLine.setAttribute('stroke', '#ddd');
-        gridLine.setAttribute('stroke-dasharray', '4,4');
-        svg.appendChild(gridLine);
+        // Grid line
+        createSvgElement('line', {
+            x1: padding,
+            y1: y,
+            x2: width - padding,
+            y2: y,
+            stroke: '#ddd',
+            'stroke-dasharray': '4,4'
+        }, svg);
     }
     
     // Create line path
@@ -370,70 +415,67 @@ function createXpProgressGraph(transactions) {
         pathData += (i === 0) ? `M ${x} ${y}` : ` L ${x} ${y}`;
     });
     
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', pathData);
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', '#3498db');
-    path.setAttribute('stroke-width', '3');
-    svg.appendChild(path);
+    // Area fill under the line
+    createSvgElement('path', {
+        d: `${pathData} L ${xScale(maxDate)} ${height - padding} L ${xScale(minDate)} ${height - padding} Z`,
+        fill: 'rgba(52, 152, 219, 0.2)'
+    }, svg);
     
-    // Add area fill under the line
-    const areaPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    areaPath.setAttribute('d', `${pathData} L ${xScale(maxDate)} ${height - padding} L ${xScale(minDate)} ${height - padding} Z`);
-    areaPath.setAttribute('fill', 'rgba(52, 152, 219, 0.2)');
-    svg.insertBefore(areaPath, path);
+    // Line path
+    createSvgElement('path', {
+        d: pathData,
+        fill: 'none',
+        stroke: '#3498db',
+        'stroke-width': '3'
+    }, svg);
     
     // Add data points
     dataPoints.forEach(point => {
         const x = xScale(point.date);
         const y = yScale(point.xp);
         
-        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        circle.setAttribute('cx', x);
-        circle.setAttribute('cy', y);
-        circle.setAttribute('r', '4');
-        circle.setAttribute('fill', '#3498db');
-        circle.setAttribute('stroke', '#fff');
-        circle.setAttribute('stroke-width', '2');
+        const circle = createSvgElement('circle', {
+            cx: x,
+            cy: y,
+            r: '4',
+            fill: '#3498db',
+            stroke: '#fff',
+            'stroke-width': '2',
+            'data-xp': point.xp,
+            'data-date': point.date.toLocaleDateString()
+        }, svg);
         
-        // Add tooltip on hover
-        circle.setAttribute('data-xp', point.xp);
-        circle.setAttribute('data-date', point.date.toLocaleDateString());
-        
-        // Optional: Add hover effects
-        circle.addEventListener('mouseover', function(e) {
+        // Add hover effects
+        circle.addEventListener('mouseover', function() {
             this.setAttribute('r', '6');
             
             // Create tooltip
-            const tooltip = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            tooltip.setAttribute('id', 'tooltip');
+            const tooltip = createSvgElement('g', { id: 'tooltip' }, svg);
             
-            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            rect.setAttribute('x', x + 10);
-            rect.setAttribute('y', y - 30);
-            rect.setAttribute('width', '120');
-            rect.setAttribute('height', '45');
-            rect.setAttribute('rx', '5');
-            rect.setAttribute('fill', 'rgba(0,0,0,0.7)');
+            createSvgElement('rect', {
+                x: x + 10,
+                y: y - 30,
+                width: '140',
+                height: '45',
+                rx: '5',
+                fill: 'rgba(0,0,0,0.7)'
+            }, tooltip);
             
-            const text1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            text1.textContent = `XP: ${formatXpLabel(point.xp)}`;
-            text1.setAttribute('x', x + 20);
-            text1.setAttribute('y', y - 12);
-            text1.setAttribute('fill', 'white');
-            text1.setAttribute('font-size', '12px');
+            createSvgElement('text', {
+                x: x + 20,
+                y: y - 12,
+                fill: 'white',
+                'font-size': '12px',
+                textContent: `XP: ${formatXpLabel(point.xp)}`
+            }, tooltip);
             
-            const text2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            text2.textContent = point.date.toLocaleDateString();
-            text2.setAttribute('x', x + 20);
-            text2.setAttribute('y', y + 5);
-            text2.setAttribute('fill', 'white');
-            text2.setAttribute('font-size', '12px');
-            
-            tooltip.appendChild(rect);
-            tooltip.appendChild(text1);
-            tooltip.appendChild(text2);
-            svg.appendChild(tooltip);
+            createSvgElement('text', {
+                x: x + 20,
+                y: y + 5,
+                fill: 'white',
+                'font-size': '12px',
+                textContent: point.date.toLocaleDateString()
+            }, tooltip);
         });
         
         circle.addEventListener('mouseout', function() {
@@ -443,45 +485,27 @@ function createXpProgressGraph(transactions) {
                 svg.removeChild(tooltip);
             }
         });
-        
-        svg.appendChild(circle);
     });
-    
-    // Add title
-    const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    title.textContent = 'XP Progression Over Time';
-    title.setAttribute('x', width / 2);
-    title.setAttribute('y', 30);
-    title.setAttribute('text-anchor', 'middle');
-    title.setAttribute('font-size', '16px');
-    title.setAttribute('font-weight', 'bold');
-    svg.appendChild(title);
 }
 
 // SVG Graph 2: Project Pass/Fail Distribution
 function createProjectRatioGraph(passed, failed) {
-    const svg = document.getElementById('project-ratio-graph');
-    const width = svg.width.baseVal.value;
-    const height = svg.height.baseVal.value;
+    const total = passed + failed;
+    
+    // Initialize SVG with common setup logic
+    const setup = setupSvgGraph(
+        'project-ratio-graph',
+        'Project Pass/Fail Distribution',
+        total > 0 ? { passed, failed } : null,
+        'No project data available'
+    );
+    
+    if (!setup) return; // No data to display
+    
+    const { svg, width, height } = setup;
     const centerX = width / 2;
     const centerY = height / 2;
     const radius = Math.min(width, height) / 2 - 60;
-    
-    // Clear existing content
-    svg.innerHTML = '';
-    
-    const total = passed + failed;
-    
-    if (total === 0) {
-        const noDataText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        noDataText.textContent = 'No project data available';
-        noDataText.setAttribute('x', width / 2);
-        noDataText.setAttribute('y', height / 2);
-        noDataText.setAttribute('text-anchor', 'middle');
-        noDataText.setAttribute('font-size', '16px');
-        svg.appendChild(noDataText);
-        return;
-    }
     
     // Calculate angles for pie chart
     const passedPercent = passed / total;
@@ -491,30 +515,20 @@ function createProjectRatioGraph(passed, failed) {
     const passedColor = '#2ecc71';
     const failedColor = '#e74c3c';
     
-    // Add title
-    const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    title.textContent = 'Project Pass/Fail Distribution';
-    title.setAttribute('x', centerX);
-    title.setAttribute('y', 30);
-    title.setAttribute('text-anchor', 'middle');
-    title.setAttribute('font-size', '16px');
-    title.setAttribute('font-weight', 'bold');
-    svg.appendChild(title);
+    // Create donut chart
+    const donutWidth = radius * 0.4;
     
-    // Create donut chart (more modern than pie chart)
-    const donutWidth = radius * 0.4; // Width of the donut ring
-    
-    // Inner circle (background/empty space)
-    const innerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    innerCircle.setAttribute('cx', centerX);
-    innerCircle.setAttribute('cy', centerY);
-    innerCircle.setAttribute('r', radius - donutWidth);
-    innerCircle.setAttribute('fill', '#f5f5f5');
-    svg.appendChild(innerCircle);
+    // Inner circle
+    createSvgElement('circle', {
+        cx: centerX,
+        cy: centerY,
+        r: radius - donutWidth,
+        fill: '#f5f5f5'
+    }, svg);
     
     // Function to calculate SVG arc path
     function getArcPath(startAngle, endAngle, isLargeArc) {
-        const startRad = (startAngle - 90) * Math.PI / 180; // -90 to start at top
+        const startRad = (startAngle - 90) * Math.PI / 180;
         const endRad = (endAngle - 90) * Math.PI / 180;
         
         const x1 = centerX + radius * Math.cos(startRad);
@@ -533,74 +547,71 @@ function createProjectRatioGraph(passed, failed) {
     
     // Passed segment
     if (passed > 0) {
-        const passedPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        const isLargeArc = passedAngle > 180 ? 1 : 0;
-        passedPath.setAttribute('d', getArcPath(0, passedAngle, isLargeArc));
-        passedPath.setAttribute('fill', passedColor);
-        svg.appendChild(passedPath);
+        createSvgElement('path', {
+            d: getArcPath(0, passedAngle, passedAngle > 180 ? 1 : 0),
+            fill: passedColor
+        }, svg);
     }
     
     // Failed segment
     if (failed > 0) {
-        const failedPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        const isLargeArc = (360 - passedAngle) > 180 ? 1 : 0;
-        failedPath.setAttribute('d', getArcPath(passedAngle, 360, isLargeArc));
-        failedPath.setAttribute('fill', failedColor);
-        svg.appendChild(failedPath);
+        createSvgElement('path', {
+            d: getArcPath(passedAngle, 360, (360 - passedAngle) > 180 ? 1 : 0),
+            fill: failedColor
+        }, svg);
     }
     
     // Add centered text
-    const percentText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    percentText.textContent = `${Math.round(passedPercent * 100)}%`;
-    percentText.setAttribute('x', centerX);
-    percentText.setAttribute('y', centerY);
-    percentText.setAttribute('text-anchor', 'middle');
-    percentText.setAttribute('dominant-baseline', 'middle');
-    percentText.setAttribute('font-size', '32px');
-    percentText.setAttribute('font-weight', 'bold');
-    svg.appendChild(percentText);
+    createSvgElement('text', {
+        x: centerX,
+        y: centerY,
+        'text-anchor': 'middle',
+        'dominant-baseline': 'middle',
+        'font-size': '32px',
+        'font-weight': 'bold',
+        textContent: `${Math.round(passedPercent * 100)}%`
+    }, svg);
     
-    const passRateText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    passRateText.textContent = 'Pass Rate';
-    passRateText.setAttribute('x', centerX);
-    passRateText.setAttribute('y', centerY + 25);
-    passRateText.setAttribute('text-anchor', 'middle');
-    passRateText.setAttribute('font-size', '14px');
-    svg.appendChild(passRateText);
+    createSvgElement('text', {
+        x: centerX,
+        y: centerY + 25,
+        'text-anchor': 'middle',
+        'font-size': '14px',
+        textContent: 'Pass Rate'
+    }, svg);
     
     // Add legend
     const legendY = centerY + radius + 20;
     
     // Passed legend
-    const passedRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    passedRect.setAttribute('x', centerX - 70);
-    passedRect.setAttribute('y', legendY);
-    passedRect.setAttribute('width', '15');
-    passedRect.setAttribute('height', '15');
-    passedRect.setAttribute('fill', passedColor);
+    createSvgElement('rect', {
+        x: centerX - 70,
+        y: legendY,
+        width: '15',
+        height: '15',
+        fill: passedColor
+    }, svg);
     
-    const passedText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    passedText.textContent = `Passed: ${passed} (${Math.round(passedPercent * 100)}%)`;
-    passedText.setAttribute('x', centerX - 50);
-    passedText.setAttribute('y', legendY + 12);
-    passedText.setAttribute('font-size', '14px');
+    createSvgElement('text', {
+        x: centerX - 50,
+        y: legendY + 12,
+        'font-size': '14px',
+        textContent: `Passed: ${passed} (${Math.round(passedPercent * 100)}%)`
+    }, svg);
     
     // Failed legend
-    const failedRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    failedRect.setAttribute('x', centerX - 70);
-    failedRect.setAttribute('y', legendY + 25);
-    failedRect.setAttribute('width', '15');
-    failedRect.setAttribute('height', '15');
-    failedRect.setAttribute('fill', failedColor);
+    createSvgElement('rect', {
+        x: centerX - 70,
+        y: legendY + 25,
+        width: '15',
+        height: '15',
+        fill: failedColor
+    }, svg);
     
-    const failedText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    failedText.textContent = `Failed: ${failed} (${Math.round((failed / total) * 100)}%)`;
-    failedText.setAttribute('x', centerX - 50);
-    failedText.setAttribute('y', legendY + 37);
-    failedText.setAttribute('font-size', '14px');
-    
-    svg.appendChild(passedRect);
-    svg.appendChild(passedText);
-    svg.appendChild(failedRect);
-    svg.appendChild(failedText);
+    createSvgElement('text', {
+        x: centerX - 50,
+        y: legendY + 37,
+        'font-size': '14px',
+        textContent: `Failed: ${failed} (${Math.round((failed / total) * 100)}%)`
+    }, svg);
 }
