@@ -35,19 +35,31 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             }
         }
         
-        const data = await response.json();
+        // Get the response data
+        const data = await response.json().catch(() => response.text());
         
-        // Store token and redirect
-        localStorage.setItem('jwtToken', data.token);
+        // Handle token - could be direct string or object with token property
+        let token;
+        if (typeof data === 'string') {
+            // API returned the token directly as a string
+            token = data;
+        } else if (data && data.token) {
+            // API returned an object with token property
+            token = data.token;
+        } else {
+            throw new Error('Invalid response format from server');
+        }
         
-        // Optional: Save user ID from JWT for easier access
-        if (data && data.token) {  // Add this check
-            const parts = data.token.split('.');
+        // Store token
+        localStorage.setItem('jwtToken', token);
+        
+        // Extract user ID from JWT
+        try {
+            const parts = token.split('.');
             const payload = JSON.parse(atob(parts[1]));
             localStorage.setItem('userId', payload.sub);
-        } else {
-            console.error('Token not found in response:', data);
-            return;
+        } catch (err) {
+            console.error('Error parsing JWT token:', err);
         }
         
         window.location.href = 'profile.html';
