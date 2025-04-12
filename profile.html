@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My GraphQL Profile</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>My School Profile</h1>
+        <button id="logoutBtn">Logout</button>
+    </header>
+    
+    <main>
+        <!-- Section 1: Basic User Info -->
+        <section id="user-info-section">
+            <h2>Basic Information</h2>
+            <div id="user-info" class="info-container">
+                <div class="loader"></div>
+            </div>
+        </section>
+        
+        <!-- Section 2: XP Progress -->
+        <section id="xp-section">
+            <h2>XP Progress</h2>
+            <div id="xp-info" class="info-container">
+                <div class="loader"></div>
+            </div>
+        </section>
+        
+        <!-- Section 3: Project Results -->
+        <section id="projects-section">
+            <h2>Project Results</h2>
+            <div id="projects-info" class="info-container">
+                <div class="loader"></div>
+            </div>
+        </section>
+        
+        <!-- Section 4: Statistics (with SVG graphs) -->
+        <section id="statistics-section">
+            <h2>Statistical Graphs</h2>
+            
+            <div class="graph-container">
+                <h3>XP Progression Over Time</h3>
+                <svg id="xp-time-graph" width="700" height="400"></svg>
+            </div>
+            
+            <div class="graph-container">
+                <h3>Project Pass/Fail Distribution</h3>
+                <svg id="project-ratio-graph" width="500" height="400"></svg>
+            </div>
+        </section>
+    </main>
+    
+    <footer>
+        <p>Created with GraphQL API</p>
+    </footer>
+    
+    <script src="profile.js"></script>
+</body>
+</html>
