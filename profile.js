@@ -141,23 +141,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     try {
-        // Move this to the VERY TOP of your function
+        // This might be null - need better handling
         const user = JSON.parse(localStorage.getItem('user'));
         
-        // Make sure we have a userId even if user object is invalid
+        // Get userId even if user object is null
         const userId = user?.id || localStorage.getItem('userId');
         if (!userId) {
-            window.location.href = 'index.html'; // Redirect if no user
+            window.location.href = 'index.html';
             return;
         }
         
-        document.getElementById('user-info').innerHTML = `
-            <div class="info-card">
-                <p><strong>User ID:</strong> ${user.id}</p>
-                <p><strong>Login:</strong> ${user.login}</p>
-                <p><strong>Name:</strong> ${user.firstName || ''} ${user.lastName || ''}</p>
-            </div>
-        `;
+        // Only try to show user details if we have them
+        if (user) {
+            document.getElementById('user-info').innerHTML = `
+                <div class="info-card">
+                    <p><strong>User ID:</strong> ${user.id}</p>
+                    <p><strong>Login:</strong> ${user.login}</p>
+                    <p><strong>Name:</strong> ${user.firstName || ''} ${user.lastName || ''}</p>
+                </div>
+            `;
+        } else {
+            // Just show the userId if that's all we have
+            document.getElementById('user-info').innerHTML = `
+                <div class="info-card">
+                    <p><strong>User ID:</strong> ${userId}</p>
+                    <p>Additional user details not available</p>
+                </div>
+            `;
+        }
         
         // 2. QUERY WITH ARGUMENTS - Get XP data for this user
         const xpQuery = `{
