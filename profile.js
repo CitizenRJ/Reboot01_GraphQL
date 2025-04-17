@@ -111,9 +111,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    async function fetchWithCache(queryName, query, maxAge = 30 * 60 * 1000) { // 30 minutes default
-        // Check cache first
-        const cacheKey = `graphql_${queryName}_${user.id}`;
+    async function fetchWithCache(queryName, query, userId, maxAge = 30 * 60 * 1000) {
+        // Use passed userId instead of global user.id
+        const cacheKey = `graphql_${queryName}_${userId}`;
         const cached = localStorage.getItem(cacheKey);
         
         if (cached) {
@@ -152,7 +152,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }`;
         
-        const userData = await fetchWithCache('user', userQuery);
+        const userData = await fetchWithCache('user', userQuery, user.id);
         if (!userData || !userData.data) throw new Error('Failed to fetch user data');
         
         const user = userData.data.user[0];
@@ -183,7 +183,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }`;
         
-        const xpData = await fetchWithCache('xp', xpQuery);
+        // Before fetching data, make sure you have user ID
+        const userId = user?.id || localStorage.getItem('userId');
+
+        // Then pass it to your fetch calls
+        const xpData = await fetchWithCache('xp', xpQuery, userId);
         if (!xpData || !xpData.data) throw new Error('Failed to fetch XP data');
         
         const transactions = xpData.data.transaction;
@@ -241,7 +245,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
         }`;
-        const progressData = await fetchWithCache('progress', progressQuery);
+        const progressData = await fetchWithCache('progress', progressQuery, userId);
         if (!progressData?.data) throw new Error('Failed to fetch progress data');
 
         const progress = progressData.data.progress;
