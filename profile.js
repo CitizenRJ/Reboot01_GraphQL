@@ -513,7 +513,6 @@ function createProjectRatioGraph(passed, failed) {
     const total = passed + failed;
     
     // Initialize SVG WITHOUT title (since it's already in HTML)
-    // Change from 'Project Pass/Fail Distribution' to ''
     const setup = setupSvgGraph(
         'project-ratio-graph',
         '',  // Empty string to skip title
@@ -526,10 +525,11 @@ function createProjectRatioGraph(passed, failed) {
     const { svg, width, height } = setup;
     const centerX = width / 2;
     const centerY = height / 2;
-    const radius = Math.min(width, height) / 2 - 40;  // Was "- 60"
+    const radius = Math.min(width, height) / 2 - 40;
     
     // Calculate angles for pie chart
     const passedPercent = passed / total;
+    const failedPercent = failed / total;
     const passedAngle = passedPercent * 360;
     
     // Colors
@@ -582,57 +582,60 @@ function createProjectRatioGraph(passed, failed) {
         }, svg);
     }
     
-    // Add centered text
+    // Calculate label positions
+    const passedLabelAngle = (passedAngle / 2) - 90;
+    const passedLabelRad = passedLabelAngle * Math.PI / 180;
+    const passedLabelX = centerX + (radius - donutWidth/2) * Math.cos(passedLabelRad);
+    const passedLabelY = centerY + (radius - donutWidth/2) * Math.sin(passedLabelRad);
+    
+    const failedLabelAngle = (passedAngle + (360 - passedAngle) / 2) - 90;
+    const failedLabelRad = failedLabelAngle * Math.PI / 180;
+    const failedLabelX = centerX + (radius - donutWidth/2) * Math.cos(failedLabelRad);
+    const failedLabelY = centerY + (radius - donutWidth/2) * Math.sin(failedLabelRad);
+    
+    // Add data labels directly on segments
+    if (passedPercent > 0.1) {  // Only add if segment is big enough
+        createSvgElement('text', {
+            x: passedLabelX,
+            y: passedLabelY,
+            'text-anchor': 'middle',
+            'dominant-baseline': 'middle',
+            'font-size': '14px',
+            'font-weight': 'bold',
+            'fill': 'white',
+            textContent: `${Math.round(passedPercent * 100)}%`
+        }, svg);
+    }
+    
+    if (failedPercent > 0.1) {  // Only add if segment is big enough
+        createSvgElement('text', {
+            x: failedLabelX,
+            y: failedLabelY,
+            'text-anchor': 'middle',
+            'dominant-baseline': 'middle',
+            'font-size': '14px',
+            'font-weight': 'bold',
+            'fill': 'white',
+            textContent: `${Math.round(failedPercent * 100)}%`
+        }, svg);
+    }
+    
+    // Show both passed and failed in center for consistency
     createSvgElement('text', {
         x: centerX,
-        y: centerY,
+        y: centerY - 15,
         'text-anchor': 'middle',
-        'dominant-baseline': 'middle',
-        'font-size': '32px',
-        'font-weight': 'bold',
-        textContent: `${Math.round(passedPercent * 100)}%`
+        'font-size': '14px',
+        'fill': passedColor,
+        textContent: `Passed: ${passed}`
     }, svg);
     
     createSvgElement('text', {
         x: centerX,
-        y: centerY + 25,
+        y: centerY + 15,
         'text-anchor': 'middle',
         'font-size': '14px',
-        textContent: 'Pass Rate'
-    }, svg);
-    
-    // Add legend with adjusted position
-    const legendY = centerY + radius - 10;  // Moved up from +20 to -10
-
-    // Passed legend
-    createSvgElement('rect', {
-        x: centerX - 70,
-        y: legendY,
-        width: '15',
-        height: '15',
-        fill: passedColor
-    }, svg);
-
-    createSvgElement('text', {
-        x: centerX - 50,
-        y: legendY + 12,
-        'font-size': '14px',
-        textContent: `Passed: ${passed} (${Math.round(passedPercent * 100)}%)`
-    }, svg);
-
-    // Failed legend - ensure it's visible with raised position
-    createSvgElement('rect', {
-        x: centerX - 70,
-        y: legendY + 25,
-        width: '15',
-        height: '15',
-        fill: failedColor
-    }, svg);
-
-    createSvgElement('text', {
-        x: centerX - 50,
-        y: legendY + 37,
-        'font-size': '14px',
-        textContent: `Failed: ${failed} (${Math.round((failed / total) * 100)}%)`
+        'fill': failedColor,
+        textContent: `Failed: ${failed}`
     }, svg);
 }
