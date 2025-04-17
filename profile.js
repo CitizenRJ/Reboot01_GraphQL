@@ -620,14 +620,14 @@ function createProjectRatioGraph(passed, failed) {
         }, svg);
     }
     
-    // Show both passed and failed in center for consistency
+    // Show both passed and failed in center for consistency with percentages
     createSvgElement('text', {
         x: centerX,
         y: centerY - 15,
         'text-anchor': 'middle',
         'font-size': '14px',
         'fill': passedColor,
-        textContent: `Passed: ${passed}`
+        textContent: `Passed: ${Math.round(passedPercent * 100)}%`  // Show % instead of count
     }, svg);
     
     createSvgElement('text', {
@@ -636,6 +636,6 @@ function createProjectRatioGraph(passed, failed) {
         'text-anchor': 'middle',
         'font-size': '14px',
         'fill': failedColor,
-        textContent: `Failed: ${failed}`
+        textContent: `Failed: ${Math.round(failedPercent * 100)}%`  // Show % instead of count
     }, svg);
 }
