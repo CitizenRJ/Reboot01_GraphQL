@@ -19,6 +19,17 @@ function createSvgElement(type, attributes, parent) {
     return element;
 }
 
+// Add this function at the top
+function showError(containerId, message) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = `
+        <div class="error-message" style="text-align:center; padding:20px;">
+            <p>${message}</p>
+            <button onclick="location.reload()">Retry</button>
+        </div>
+    `;
+}
+
 // Helper function for SVG graph initialization
 function setupSvgGraph(svgId, title, data, emptyMessage = 'No data available') {
     const svg = document.getElementById(svgId);
@@ -73,26 +84,60 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     
     // GraphQL query function
-    async function fetchGraphQL(query) {
-        try {
-            const response = await fetch('https://learn.reboot01.com/api/graphql-engine/v1/graphql', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ query })
-            });
-            
-            if (!response.ok) {
-                throw new Error('GraphQL query failed');
+    async function fetchGraphQL(query, retries = 3, delay = 1000) {
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            try {
+                const response = await fetch('https://learn.reboot01.com/api/graphql-engine/v1/graphql', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ query })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`GraphQL query failed: ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.warn(`Attempt ${attempt+1}/${retries+1} failed:`, error.message);
+                if (attempt === retries) throw error;
+                
+                // Wait before retrying (increasing delay with each retry)
+                await new Promise(r => setTimeout(r, delay * (attempt + 1)));
             }
-            
-            return await response.json();
-        } catch (error) {
-            console.error('GraphQL error:', error);
-            return null;
         }
+    }
+
+    async function fetchWithCache(queryName, query, maxAge = 30 * 60 * 1000) { // 30 minutes default
+        // Check cache first
+        const cacheKey = `graphql_${queryName}_${user.id}`;
+        const cached = localStorage.getItem(cacheKey);
+        
+        if (cached) {
+            try {
+                const { data, timestamp } = JSON.parse(cached);
+                // If cache is fresh, use it
+                if (Date.now() - timestamp < maxAge) {
+                    console.log(`Using cached data for ${queryName}`);
+                    return { data };
+                }
+            } catch (e) {
+                console.warn("Cache parse error:", e);
+            }
+        }
+        
+        // Otherwise fetch fresh data
+        const result = await fetchGraphQL(query);
+        if (result?.data) {
+            localStorage.setItem(cacheKey, JSON.stringify({
+                data: result.data,
+                timestamp: Date.now()
+            }));
+        }
+        return result;
     }
     
     try {
@@ -107,7 +152,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }`;
         
-        const userData = await fetchGraphQL(userQuery);
+        const userData = await fetchWithCache('user', userQuery);
         if (!userData || !userData.data) throw new Error('Failed to fetch user data');
         
         const user = userData.data.user[0];
@@ -138,7 +183,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }`;
         
-        const xpData = await fetchGraphQL(xpQuery);
+        const xpData = await fetchWithCache('xp', xpQuery);
         if (!xpData || !xpData.data) throw new Error('Failed to fetch XP data');
         
         const transactions = xpData.data.transaction;
@@ -196,7 +241,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
         }`;
-        const progressData = await fetchGraphQL(progressQuery);
+        const progressData = await fetchWithCache('progress', progressQuery);
         if (!progressData?.data) throw new Error('Failed to fetch progress data');
 
         const progress = progressData.data.progress;
@@ -245,13 +290,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             recentContainer.appendChild(div);
           });
 
-        // Create SVG graphs
-        createXpProgressGraph(transactions);
-        createProjectRatioGraph(passedProjects, failedProjects);
+        // Lazy load charts AFTER the critical content is displayed
+        setTimeout(() => {
+            try {
+                createXpProgressGraph(transactions);
+                createProjectRatioGraph(passedProjects, failedProjects);
+            } catch (err) {
+                console.error("Chart rendering error:", err);
+                // Display fallback message in chart containers
+                document.getElementById('xp-time-graph').innerHTML = 
+                    '<text x="50%" y="50%" text-anchor="middle">Charts unavailable. Please reload.</text>';
+                document.getElementById('project-ratio-graph').innerHTML = 
+                    '<text x="50%" y="50%" text-anchor="middle">Charts unavailable. Please reload.</text>';
+            }
+        }, 100); // Small delay after main content loads
         
     } catch (error) {
         console.error('Error:', error);
-        alert('Failed to load profile data. Please try logging in again.');
+        showError('user-info', 'Network error. Unable to load profile data.');
+        showError('xp-info', 'Network error. Unable to load XP data.');  
+        showError('projects-info', 'Network error. Unable to load project data.');
+        showError('statistics-section', 'Network error. Unable to load statistics.');
     }
 });
 
