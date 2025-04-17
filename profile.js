@@ -181,11 +181,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             progress(
                 where: {
                     userId: {_eq: ${user.id}}
-                    // Remove the grade filter to see ALL projects including in-progress
                 },
                 order_by: {updatedAt: desc}
             ) {
-                // ...same fields...
+                id
+                grade
+                createdAt
+                updatedAt
+                path
+                object {
+                    id
+                    name
+                    type
+                }
             }
         }`;
         const progressData = await fetchGraphQL(progressQuery);
