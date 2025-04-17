@@ -180,21 +180,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const progressQuery = `{
             progress(
                 where: {
-                    userId: {_eq: ${user.id}},
-                    grade:  {_is_null: false}
+                    userId: {_eq: ${user.id}}
+                    // Remove the grade filter to see ALL projects including in-progress
                 },
                 order_by: {updatedAt: desc}
             ) {
-                id
-                grade
-                createdAt
-                updatedAt
-                path
-                object {
-                    id
-                    name
-                    type
-                }
+                // ...same fields...
             }
         }`;
         const progressData = await fetchGraphQL(progressQuery);
@@ -212,10 +203,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, {});
 
         const uniqueProgress = Object.values(latestByObj);
-
-        // Categorize only completed attempts
+        const inProgress = uniqueProgress.filter(p => p.grade === null).length;
         const passedProjects = uniqueProgress.filter(p => p.grade > 0).length;
         const failedProjects = uniqueProgress.filter(p => p.grade === 0).length;
+
         const totalDone    = passedProjects + failedProjects;
         const passRate     = totalDone ? Math.round(passedProjects/totalDone*100) : 0;
 
@@ -233,11 +224,16 @@ document.addEventListener('DOMContentLoaded', async () => {
           .forEach(p => {
             const div = document.createElement('div');
             div.className = 'project-item';
+            
+            // Handle null grades as "In Progress"
+            const status = p.grade === null ? 'In Progress' : 
+                          p.grade > 0 ? 'Passed' : 'Failed';
+            const cls = p.grade === null ? 'status-progress' : 
+                       p.grade > 0 ? 'status-passed' : 'status-failed';
+            
             div.innerHTML = `
               <span>${p.path.split('/').pop()}</span>
-              <span class="${p.grade>0?'status-passed':'status-failed'}">
-                ${p.grade>0?'Passed':'Failed'}
-              </span>`;
+              <span class="${cls}">${status}</span>`;
             recentContainer.appendChild(div);
           });
 
