@@ -594,7 +594,7 @@ function createProjectRatioGraph(passed, failed) {
     const failedLabelY = centerY + (radius - donutWidth/2) * Math.sin(failedLabelRad);
     
     // Add data labels directly on segments
-    if (passedPercent > 0.1) {  // Only add if segment is big enough
+    if (passedPercent > 0.05) {  // Lower threshold to make label more likely to appear
         createSvgElement('text', {
             x: passedLabelX,
             y: passedLabelY,
@@ -602,12 +602,12 @@ function createProjectRatioGraph(passed, failed) {
             'dominant-baseline': 'middle',
             'font-size': '14px',
             'font-weight': 'bold',
-            'fill': 'white',
-            textContent: `${Math.round(passedPercent * 100)}%`
+            'fill': 'black',  // Changed from white to black
+            textContent: `${Math.round(passedPercent * 100)}% pass`  // Added "pass"
         }, svg);
     }
     
-    if (failedPercent > 0.1) {  // Only add if segment is big enough
+    if (failedPercent > 0.05) {  // Lower threshold to make label more likely to appear
         createSvgElement('text', {
             x: failedLabelX,
             y: failedLabelY,
@@ -615,8 +615,8 @@ function createProjectRatioGraph(passed, failed) {
             'dominant-baseline': 'middle',
             'font-size': '14px',
             'font-weight': 'bold',
-            'fill': 'white',
-            textContent: `${Math.round(failedPercent * 100)}%`
+            'fill': 'black',  // Changed from white to black
+            textContent: `${Math.round(failedPercent * 100)}% fail`  // Added "fail"
         }, svg);
     }
 }
