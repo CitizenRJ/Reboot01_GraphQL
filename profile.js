@@ -364,7 +364,91 @@ function createXpProgressGraph(transactions) {
     if (!setup) return;
     const { svg, width, height } = setup;
     
-    // Continue with the rest of the function...
+    // Calculate dataPoints
+    let cumulativeXP = 0;
+    const dataPoints = transactions.map(t => {
+        cumulativeXP += t.amount;
+        return {
+            date: new Date(t.createdAt),
+            xp: cumulativeXP
+        };
+    });
+    
+    const padding = { left: 80, right: 40, top: 40, bottom: 60 };
+    
+    // Sort transactions and calculate cumulative XP
+    const minDate = dataPoints[0].date;
+    const maxDate = dataPoints[dataPoints.length - 1].date;
+    const maxXP = dataPoints[dataPoints.length - 1].xp;
+    
+    // Update scale functions for new padding
+    const xScale = (date) => {
+        const range = maxDate - minDate;
+        return padding.left + ((date - minDate) / range) * (width - padding.left - padding.right);
+    };
+    
+    const yScale = (xp) => {
+        return height - padding.bottom - (xp / maxXP) * (height - padding.top - padding.bottom);
+    };
+    
+    // Create axes
+    createSvgElement('line', {
+        x1: padding.left,
+        y1: height - padding.bottom,
+        x2: width - padding.right,
+        y2: height - padding.bottom,
+        stroke: '#333',
+        'stroke-width': '2'
+    }, svg);
+    
+    createSvgElement('line', {
+        x1: padding.left,
+        y1: padding.top,
+        x2: padding.left,
+        y2: height - padding.bottom,
+        stroke: '#333',
+        'stroke-width': '2'
+    }, svg);
+    
+    // Add axis labels
+    createSvgElement('text', {
+        x: width / 2,
+        y: height - 15,
+        'text-anchor': 'middle',
+        textContent: 'Time'
+    }, svg);
+    
+    // Position "Total XP" with plenty of space
+    createSvgElement('text', {
+        x: 20,
+        y: height / 2,
+        transform: `rotate(-90, 20, ${height/2})`,
+        'text-anchor': 'middle',
+        'font-size': '12px',
+        textContent: 'Total XP'
+    }, svg);
+    
+    // Create line path
+    let pathData = '';
+    dataPoints.forEach((point, i) => {
+        const x = xScale(point.date);
+        const y = yScale(point.xp);
+        pathData += (i === 0) ? `M ${x} ${y}` : ` L ${x} ${y}`;
+    });
+    
+    // Area fill under the line
+    createSvgElement('path', {
+        d: `${pathData} L ${xScale(maxDate)} ${height - padding.bottom} L ${xScale(minDate)} ${height - padding.bottom} Z`,
+        fill: 'rgba(52, 152, 219, 0.2)'
+    }, svg);
+    
+    // Line path
+    createSvgElement('path', {
+        d: pathData,
+        fill: 'none',
+        stroke: '#3498db',
+        'stroke-width': '3'
+    }, svg);
 }
 
 // SVG Graph 2: Project Pass/Fail Distribution
