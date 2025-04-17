@@ -287,36 +287,39 @@ function createXpProgressGraph(transactions) {
         };
     });
     
-    const padding = 60;
+    // Increase left padding specifically to make room for the y-axis label
+    const padding = { left: 80, right: 40, top: 40, bottom: 60 };
+    
     // Sort transactions and calculate cumulative XP
     const minDate = dataPoints[0].date;
     const maxDate = dataPoints[dataPoints.length - 1].date;
     const maxXP = dataPoints[dataPoints.length - 1].xp;
     
+    // Update scale functions for new padding
     const xScale = (date) => {
         const range = maxDate - minDate;
-        return padding + ((date - minDate) / range) * (width - 2 * padding);
+        return padding.left + ((date - minDate) / range) * (width - padding.left - padding.right);
     };
     
     const yScale = (xp) => {
-        return height - padding - (xp / maxXP) * (height - 2 * padding);
+        return height - padding.bottom - (xp / maxXP) * (height - padding.top - padding.bottom);
     };
     
-    // Create axes
+    // Create axes with updated padding
     createSvgElement('line', {
-        x1: padding,
-        y1: height - padding,
-        x2: width - padding,
-        y2: height - padding,
+        x1: padding.left,
+        y1: height - padding.bottom,
+        x2: width - padding.right,
+        y2: height - padding.bottom,
         stroke: '#333',
         'stroke-width': '2'
     }, svg);
     
     createSvgElement('line', {
-        x1: padding,
-        y1: padding,
-        x2: padding,
-        y2: height - padding,
+        x1: padding.left,
+        y1: padding.top,
+        x2: padding.left,
+        y2: height - padding.bottom,
         stroke: '#333',
         'stroke-width': '2'
     }, svg);
@@ -329,12 +332,13 @@ function createXpProgressGraph(transactions) {
         textContent: 'Time'
     }, svg);
     
-    // Move "Total XP" much further left to prevent overlap
+    // Position "Total XP" with plenty of space
     createSvgElement('text', {
-        x: 5,  // Changed from 15 to 5
+        x: 20,  // Fixed position instead of formula
         y: height / 2,
-        transform: `rotate(-90, 5, ${height/2})`, // Updated rotation point
+        transform: `rotate(-90, 20, ${height/2})`,
         'text-anchor': 'middle',
+        'font-size': '12px',  // Slightly smaller
         textContent: 'Total XP'
     }, svg);
     
@@ -370,16 +374,16 @@ function createXpProgressGraph(transactions) {
         // Tick mark
         createSvgElement('line', {
             x1: x,
-            y1: height - padding,
+            y1: height - padding.bottom,
             x2: x,
-            y2: height - padding + 5,
+            y2: height - padding.bottom + 5,
             stroke: '#333'
         }, svg);
         
         // Label
         createSvgElement('text', {
             x: x,
-            y: height - padding + 20,
+            y: height - padding.bottom + 20,
             'text-anchor': 'middle',
             'font-size': '12px',
             textContent: dayRange <= 30 
@@ -396,16 +400,16 @@ function createXpProgressGraph(transactions) {
         
         // Tick mark
         createSvgElement('line', {
-            x1: padding,
+            x1: padding.left,
             y1: y,
-            x2: padding - 5,
+            x2: padding.left - 5,
             y2: y,
             stroke: '#333'
         }, svg);
         
         // Label with kB format
         createSvgElement('text', {
-            x: padding - 15,  // More space from the axis
+            x: padding.left - 15,  // More space from the axis
             y: y + 4,
             'text-anchor': 'end',
             'font-size': '12px',
@@ -414,9 +418,9 @@ function createXpProgressGraph(transactions) {
         
         // Grid line
         createSvgElement('line', {
-            x1: padding,
+            x1: padding.left,
             y1: y,
-            x2: width - padding,
+            x2: width - padding.right,
             y2: y,
             stroke: '#ddd',
             'stroke-dasharray': '4,4'
@@ -433,7 +437,7 @@ function createXpProgressGraph(transactions) {
     
     // Area fill under the line
     createSvgElement('path', {
-        d: `${pathData} L ${xScale(maxDate)} ${height - padding} L ${xScale(minDate)} ${height - padding} Z`,
+        d: `${pathData} L ${xScale(maxDate)} ${height - padding.bottom} L ${xScale(minDate)} ${height - padding.bottom} Z`,
         fill: 'rgba(52, 152, 219, 0.2)'
     }, svg);
     
