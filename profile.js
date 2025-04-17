@@ -428,21 +428,22 @@ function createXpProgressGraph(transactions) {
         textContent: 'Total XP'
     }, svg);
     
-    // X-axis (time) - Add month labels
+    // X-axis (time) - Add quarter labels instead of monthly
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const dateRange = maxDate - minDate;
     const dayRange = dateRange / (1000 * 60 * 60 * 24);
 
-    // Generate monthly tick marks
+    // Generate quarterly tick marks (every 3 months)
     let currentDate = new Date(minDate);
     currentDate.setDate(1); // Move to first of month
 
-    // Go to previous month if we're midway through
-    if (minDate.getDate() > 15) {
-        currentDate.setMonth(currentDate.getMonth() + 1);
+    // Adjust to start at beginning of a quarter (Jan, Apr, Jul, Oct)
+    const monthOffset = currentDate.getMonth() % 3;
+    if (monthOffset !== 0) {
+        currentDate.setMonth(currentDate.getMonth() + (3 - monthOffset));
     }
 
-    // Create tick marks and labels for each month
+    // Create tick marks and labels for each quarter
     while (currentDate <= maxDate) {
         const x = xScale(currentDate);
         
@@ -455,7 +456,7 @@ function createXpProgressGraph(transactions) {
             stroke: '#333'
         }, svg);
         
-        // Month label
+        // Quarter label
         createSvgElement('text', {
             x: x,
             y: height - padding.bottom + 20,
@@ -474,8 +475,8 @@ function createXpProgressGraph(transactions) {
             'stroke-width': '1'
         }, svg);
         
-        // Move to next month
-        currentDate.setMonth(currentDate.getMonth() + 1);
+        // Move to next quarter (3 months)
+        currentDate.setMonth(currentDate.getMonth() + 3);
     }
 
     // Y-axis (XP) - Add formatted values
