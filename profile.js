@@ -257,7 +257,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // SVG Graph 1: XP Progression Over Time
 function createXpProgressGraph(transactions) {
-    // Sort transactions and calculate cumulative XP
+    // Initialize SVG without title (since it's already in HTML)
+    const svg = document.getElementById('xp-time-graph');
+    const width = svg.width.baseVal.value;
+    const height = svg.height.baseVal.value;
+    
+    // Clear existing content
+    svg.innerHTML = '';
+    
+    // Check if there's data to display
+    if (!transactions || transactions.length === 0) {
+        createSvgElement('text', {
+            x: width / 2,
+            y: height / 2,
+            'text-anchor': 'middle',
+            'font-size': '16px',
+            textContent: 'No XP data available'
+        }, svg);
+        return;
+    }
+    
+    // Calculate dataPoints (no title added)
     let cumulativeXP = 0;
     const dataPoints = transactions.map(t => {
         cumulativeXP += t.amount;
@@ -267,20 +287,8 @@ function createXpProgressGraph(transactions) {
         };
     });
     
-    // Initialize SVG with common setup logic
-    const setup = setupSvgGraph(
-        'xp-time-graph', 
-        'XP Progression Over Time',
-        dataPoints,
-        'No XP data available'
-    );
-    
-    if (!setup) return; // No data to display
-    
-    const { svg, width, height } = setup;
     const padding = 60;
-    
-    // Calculate scales
+    // Sort transactions and calculate cumulative XP
     const minDate = dataPoints[0].date;
     const maxDate = dataPoints[dataPoints.length - 1].date;
     const maxXP = dataPoints[dataPoints.length - 1].xp;
@@ -313,7 +321,7 @@ function createXpProgressGraph(transactions) {
         'stroke-width': '2'
     }, svg);
     
-    // Add axis labels
+    // Add axis labels with better positioning
     createSvgElement('text', {
         x: width / 2,
         y: height - 15,
@@ -321,10 +329,11 @@ function createXpProgressGraph(transactions) {
         textContent: 'Time'
     }, svg);
     
+    // Move "Total XP" further left and adjust position
     createSvgElement('text', {
-        x: 20,
+        x: 15,  // Moved from 20 to 15
         y: height / 2,
-        transform: `rotate(-90, 20, ${height/2})`,
+        transform: `rotate(-90, 15, ${height/2})`, // Updated rotation point too
         'text-anchor': 'middle',
         textContent: 'Total XP'
     }, svg);
@@ -334,18 +343,24 @@ function createXpProgressGraph(transactions) {
     const dateRange = maxDate - minDate;
     const dayRange = dateRange / (1000 * 60 * 60 * 24);
     
-    // Choose appropriate time intervals
+    // Choose appropriate time intervals with fewer labels to prevent overlap
     let timePoints = [];
     if (dayRange <= 30) {
-        for (let i = 0; i <= dayRange; i += Math.max(1, Math.floor(dayRange / 5))) {
+        // For short periods (≤30 days), show ~5 evenly spaced points
+        const step = Math.max(1, Math.ceil(dayRange / 5));
+        for (let i = 0; i <= dayRange; i += step) {
             const date = new Date(minDate.getTime() + i * 24 * 60 * 60 * 1000);
             timePoints.push(date);
         }
     } else {
+        // For longer periods, show one label per quarter or every few months
         let currentDate = new Date(minDate);
+        const monthStep = dayRange > 180 ? 3 : 2; // Quarterly or bi-monthly
+        
         while (currentDate <= maxDate) {
             timePoints.push(new Date(currentDate));
-            currentDate.setMonth(currentDate.getMonth() + 1);
+            // Add months in steps to avoid overcrowding
+            currentDate.setMonth(currentDate.getMonth() + monthStep);
         }
     }
     
@@ -390,7 +405,7 @@ function createXpProgressGraph(transactions) {
         
         // Label with kB format
         createSvgElement('text', {
-            x: padding - 10,
+            x: padding - 15,  // More space from the axis
             y: y + 4,
             'text-anchor': 'end',
             'font-size': '12px',
@@ -493,20 +508,21 @@ function createXpProgressGraph(transactions) {
 function createProjectRatioGraph(passed, failed) {
     const total = passed + failed;
     
-    // Initialize SVG with common setup logic
+    // Initialize SVG WITHOUT title (since it's already in HTML)
+    // Change from 'Project Pass/Fail Distribution' to ''
     const setup = setupSvgGraph(
         'project-ratio-graph',
-        'Project Pass/Fail Distribution',
+        '',  // Empty string to skip title
         total > 0 ? { passed, failed } : null,
         'No project data available'
     );
     
-    if (!setup) return; // No data to display
+    if (!setup) return;
     
     const { svg, width, height } = setup;
     const centerX = width / 2;
     const centerY = height / 2;
-    const radius = Math.min(width, height) / 2 - 60;
+    const radius = Math.min(width, height) / 2 - 40;  // Was "- 60"
     
     // Calculate angles for pie chart
     const passedPercent = passed / total;
