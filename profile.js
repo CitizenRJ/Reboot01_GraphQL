@@ -219,45 +219,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         const totalDone    = passedProjects + failedProjects;
         const passRate     = totalDone ? Math.round(passedProjects/totalDone*100) : 0;
 
-        // Render stats and recent projects using uniqueProgress…
-        let recentProjectsHTML = '';
-        uniqueProgress
-            .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-            .slice(0, 5)
-            .forEach(p => {
-                const status = p.grade > 0 ? 'Passed' : 'Failed';
-                const cls = p.grade > 0 ? 'status-passed' : 'status-failed';
-                recentProjectsHTML += `
-                    <div class="project-item">
-                        <span>${p.path.split('/').pop()}</span>
-                        <span class="${cls}">${status}</span>
-                    </div>`;
-            });
+        // Update DOM with pass/fail stats
+        document.getElementById('passed-count').textContent = passedProjects;
+        document.getElementById('failed-count').textContent = failedProjects;
+        document.getElementById('pass-rate').textContent   = passRate + '%';
 
-        document.getElementById('projects-info').innerHTML = `
-            <div class="info-card">
-                <div class="stats-row">
-                    <div class="stat-box">
-                        <span class="stat-value">${passedProjects}</span>
-                        <span class="stat-label">Passed</span>
-                    </div>
-                    <div class="stat-box">
-                        <span class="stat-value">${failedProjects}</span>
-                        <span class="stat-label">Failed</span>
-                    </div>
-                    <div class="stat-box">
-                        <span class="stat-value">${passRate}%</span>
-                        <span class="stat-label">Pass Rate</span>
-                    </div>
-                </div>
-                
-                <h4>Recent Projects:</h4>
-                <div class="project-list">
-                    ${recentProjectsHTML}
-                </div>
-            </div>
-        `;
-        
+        // Populate recent projects list
+        const recentContainer = document.getElementById('recent-projects');
+        recentContainer.innerHTML = '';  // clear loader
+        uniqueProgress
+          .sort((a,b)=> new Date(b.updatedAt) - new Date(a.updatedAt))
+          .slice(0,5)
+          .forEach(p => {
+            const div = document.createElement('div');
+            div.className = 'project-item';
+            div.innerHTML = `
+              <span>${p.path.split('/').pop()}</span>
+              <span class="${p.grade>0?'status-passed':'status-failed'}">
+                ${p.grade>0?'Passed':'Failed'}
+              </span>`;
+            recentContainer.appendChild(div);
+          });
+
         // Create SVG graphs
         createXpProgressGraph(transactions);
         createProjectRatioGraph(passedProjects, failedProjects);

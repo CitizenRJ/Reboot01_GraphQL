@@ -33,7 +33,24 @@
         <section id="projects-section">
             <h2>Project Results</h2>
             <div id="projects-info" class="info-container">
-                <div class="loader"></div>
+                <div class="stats-row">
+                    <div class="stat-box">
+                        <span class="stat-value" id="passed-count">–</span>
+                        <span class="stat-label">Passed</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-value" id="failed-count">–</span>
+                        <span class="stat-label">Failed</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-value" id="pass-rate">–%</span>
+                        <span class="stat-label">Pass Rate</span>
+                    </div>
+                </div>
+                <h4>Recent Projects:</h4>
+                <div class="project-list" id="recent-projects">
+                    <!-- JS will append .project-item elements here -->
+                </div>
             </div>
         </section>
         
@@ -43,12 +60,12 @@
             
             <div class="graph-container">
                 <h3>XP Progression Over Time</h3>
-                <svg id="xp-time-graph" width="700" height="400"></svg>
+                <svg id="xp-time-graph" width="600" height="300"></svg>
             </div>
             
             <div class="graph-container">
                 <h3>Project Pass/Fail Distribution</h3>
-                <svg id="project-ratio-graph" width="500" height="400"></svg>
+                <svg id="project-ratio-graph" width="300" height="300"></svg>
             </div>
         </section>
     </main>
