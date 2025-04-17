@@ -141,23 +141,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     try {
-        // 1. BASIC QUERY - Get user info
-        const userQuery = `{
-            user {
-                id
-                login
-                firstName
-                lastName
-                attrs
-            }
-        }`;
+        // Move this to the VERY TOP of your function
+        const user = JSON.parse(localStorage.getItem('user'));
         
-        const userData = await fetchWithCache('user', userQuery, user.id);
-        if (!userData || !userData.data) throw new Error('Failed to fetch user data');
+        // Make sure we have a userId even if user object is invalid
+        const userId = user?.id || localStorage.getItem('userId');
+        if (!userId) {
+            window.location.href = 'index.html'; // Redirect if no user
+            return;
+        }
         
-        const user = userData.data.user[0];
-        
-        // Display user info
         document.getElementById('user-info').innerHTML = `
             <div class="info-card">
                 <p><strong>User ID:</strong> ${user.id}</p>
@@ -171,7 +164,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             transaction(
                 where: {
                     type: {_eq: "xp"}, 
-                    userId: {_eq: ${user.id}}
+                    userId: {_eq: ${userId}}
                 },
                 order_by: {createdAt: asc}
             ) {
@@ -183,10 +176,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }`;
         
-        // Before fetching data, make sure you have user ID
-        const userId = user?.id || localStorage.getItem('userId');
-
-        // Then pass it to your fetch calls
+        // Then use userId (not user.id) in your fetch calls
         const xpData = await fetchWithCache('xp', xpQuery, userId);
         if (!xpData || !xpData.data) throw new Error('Failed to fetch XP data');
         
@@ -229,7 +219,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const progressQuery = `{
             progress(
                 where: {
-                    userId: {_eq: ${user.id}}
+                    userId: {_eq: ${userId}}
                 },
                 order_by: {updatedAt: desc}
             ) {
