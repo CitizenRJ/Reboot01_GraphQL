@@ -176,10 +176,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
         `;
         
-        // 3. NESTED QUERY - Get project results with object details
+        // 3. NESTED QUERY – only fetch non‐null grades (i.e. completed attempts)
         const progressQuery = `{
             progress(
-                where: {userId: {_eq: ${user.id}}},
+                where: {
+                    userId: {_eq: ${user.id}},
+                    grade:  {_is_null: false}
+                },
                 order_by: {updatedAt: desc}
             ) {
                 id
@@ -194,13 +197,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
         }`;
-        
         const progressData = await fetchGraphQL(progressQuery);
-        if (!progressData || !progressData.data) throw new Error('Failed to fetch progress data');
-        
+        if (!progressData?.data) throw new Error('Failed to fetch progress data');
+
         const progress = progressData.data.progress;
 
-        // Deduplicate to latest per project
+        // Dedupe to latest per object
         const latestByObj = progress.reduce((acc, p) => {
             const key = p.object.id;
             if (!acc[key] || new Date(p.updatedAt) > new Date(acc[key].updatedAt)) {
@@ -211,14 +213,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const uniqueProgress = Object.values(latestByObj);
 
+        // Categorize only completed attempts
         const passedProjects = uniqueProgress.filter(p => p.grade > 0).length;
         const failedProjects = uniqueProgress.filter(p => p.grade === 0).length;
-        const totalProjects = uniqueProgress.length;
-        const passRate = totalProjects > 0
-            ? Math.round((passedProjects / totalProjects) * 100)
-            : 0;
+        const totalDone    = passedProjects + failedProjects;
+        const passRate     = totalDone ? Math.round(passedProjects/totalDone*100) : 0;
 
-        // Now use uniqueProgress instead of progress for “Recent Projects”
+        // Render stats and recent projects using uniqueProgress…
         let recentProjectsHTML = '';
         uniqueProgress
             .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
