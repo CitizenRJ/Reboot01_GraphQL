@@ -329,11 +329,11 @@ function createXpProgressGraph(transactions) {
         textContent: 'Time'
     }, svg);
     
-    // Move "Total XP" further left and adjust position
+    // Move "Total XP" much further left to prevent overlap
     createSvgElement('text', {
-        x: 15,  // Moved from 20 to 15
+        x: 5,  // Changed from 15 to 5
         y: height / 2,
-        transform: `rotate(-90, 15, ${height/2})`, // Updated rotation point too
+        transform: `rotate(-90, 5, ${height/2})`, // Updated rotation point
         'text-anchor': 'middle',
         textContent: 'Total XP'
     }, svg);
