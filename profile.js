@@ -607,7 +607,8 @@ function createProjectRatioGraph(passed, failed) {
         }, svg);
     }
     
-    if (failedPercent > 0.05) {  // Lower threshold to make label more likely to appear
+    // For larger segments (>20%), place label inside
+    if (failedPercent >= 0.20) {
         createSvgElement('text', {
             x: failedLabelX,
             y: failedLabelY,
@@ -615,8 +616,37 @@ function createProjectRatioGraph(passed, failed) {
             'dominant-baseline': 'middle',
             'font-size': '14px',
             'font-weight': 'bold',
-            'fill': 'black',  // Changed from white to black
-            textContent: `${Math.round(failedPercent * 100)}% fail`  // Added "fail"
+            'fill': 'black',
+            textContent: `${Math.round(failedPercent * 100)}% fail`
+        }, svg);
+    }
+    // For smaller segments (<20%), place label outside with connector
+    else if (failedPercent > 0) {
+        // Calculate position outside the segment
+        const outsideLabelAngle = failedLabelAngle;
+        const outsideLabelRad = outsideLabelAngle * Math.PI / 180;
+        const outsideLabelX = centerX + (radius + 25) * Math.cos(outsideLabelRad);
+        const outsideLabelY = centerY + (radius + 25) * Math.sin(outsideLabelRad);
+        
+        // Add connector line
+        createSvgElement('line', {
+            x1: centerX + radius * Math.cos(outsideLabelRad) * 0.8,
+            y1: centerY + radius * Math.sin(outsideLabelRad) * 0.8,
+            x2: outsideLabelX - 5 * Math.cos(outsideLabelRad),
+            y2: outsideLabelY - 5 * Math.sin(outsideLabelRad),
+            stroke: '#777',
+            'stroke-width': '1'
+        }, svg);
+        
+        // Add outside label
+        createSvgElement('text', {
+            x: outsideLabelX,
+            y: outsideLabelY,
+            'text-anchor': 'middle',
+            'dominant-baseline': 'middle',
+            'font-size': '14px',
+            'font-weight': 'bold',
+            textContent: `${Math.round(failedPercent * 100)}% fail`
         }, svg);
     }
 }
