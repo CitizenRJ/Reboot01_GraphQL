@@ -428,6 +428,91 @@ function createXpProgressGraph(transactions) {
         textContent: 'Total XP'
     }, svg);
     
+    // X-axis (time) - Add month labels
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const dateRange = maxDate - minDate;
+    const dayRange = dateRange / (1000 * 60 * 60 * 24);
+
+    // Generate monthly tick marks
+    let currentDate = new Date(minDate);
+    currentDate.setDate(1); // Move to first of month
+
+    // Go to previous month if we're midway through
+    if (minDate.getDate() > 15) {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+    }
+
+    // Create tick marks and labels for each month
+    while (currentDate <= maxDate) {
+        const x = xScale(currentDate);
+        
+        // Tick mark
+        createSvgElement('line', {
+            x1: x,
+            y1: height - padding.bottom,
+            x2: x,
+            y2: height - padding.bottom + 5,
+            stroke: '#333'
+        }, svg);
+        
+        // Month label
+        createSvgElement('text', {
+            x: x,
+            y: height - padding.bottom + 20,
+            'text-anchor': 'middle',
+            'font-size': '12px',
+            textContent: `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`
+        }, svg);
+        
+        // Vertical grid line (lighter)
+        createSvgElement('line', {
+            x1: x,
+            y1: padding.top,
+            x2: x,
+            y2: height - padding.bottom,
+            stroke: '#eee',
+            'stroke-width': '1'
+        }, svg);
+        
+        // Move to next month
+        currentDate.setMonth(currentDate.getMonth() + 1);
+    }
+
+    // Y-axis (XP) - Add formatted values
+    const yTicks = 5;
+    for (let i = 0; i <= yTicks; i++) {
+        const xpValue = (maxXP / yTicks) * i;
+        const y = yScale(xpValue);
+        
+        // Tick mark
+        createSvgElement('line', {
+            x1: padding.left,
+            y1: y,
+            x2: padding.left - 5,
+            y2: y,
+            stroke: '#333'
+        }, svg);
+        
+        // Label with kB format
+        createSvgElement('text', {
+            x: padding.left - 10,
+            y: y + 4,
+            'text-anchor': 'end',
+            'font-size': '12px',
+            textContent: formatXpLabel(xpValue)
+        }, svg);
+        
+        // Horizontal grid line
+        createSvgElement('line', {
+            x1: padding.left,
+            y1: y,
+            x2: width - padding.right,
+            y2: y,
+            stroke: '#eee',
+            'stroke-width': '1'
+        }, svg);
+    }
+    
     // Create line path
     let pathData = '';
     dataPoints.forEach((point, i) => {
