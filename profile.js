@@ -199,27 +199,40 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!progressData || !progressData.data) throw new Error('Failed to fetch progress data');
         
         const progress = progressData.data.progress;
-        
-        // Calculate stats
-        const passedProjects = progress.filter(p => p.grade > 0).length;
-        const failedProjects = progress.filter(p => p.grade === 0).length;
-        const totalProjects = progress.length;
-        const passRate = totalProjects > 0 ? Math.round((passedProjects / totalProjects) * 100) : 0;
-        
-        // Format recent projects
+
+        // Deduplicate to latest per project
+        const latestByObj = progress.reduce((acc, p) => {
+            const key = p.object.id;
+            if (!acc[key] || new Date(p.updatedAt) > new Date(acc[key].updatedAt)) {
+                acc[key] = p;
+            }
+            return acc;
+        }, {});
+
+        const uniqueProgress = Object.values(latestByObj);
+
+        const passedProjects = uniqueProgress.filter(p => p.grade > 0).length;
+        const failedProjects = uniqueProgress.filter(p => p.grade === 0).length;
+        const totalProjects = uniqueProgress.length;
+        const passRate = totalProjects > 0
+            ? Math.round((passedProjects / totalProjects) * 100)
+            : 0;
+
+        // Now use uniqueProgress instead of progress for “Recent Projects”
         let recentProjectsHTML = '';
-        progress.slice(0, 5).forEach(p => {
-            const status = p.grade > 0 ? 'Passed' : 'Failed';
-            const statusClass = p.grade > 0 ? 'status-passed' : 'status-failed';
-            
-            recentProjectsHTML += `
-                <div class="project-item">
-                    <span>${p.path.split('/').pop()}</span>
-                    <span class="${statusClass}">${status}</span>
-                </div>
-            `;
-        });
-        
+        uniqueProgress
+            .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+            .slice(0, 5)
+            .forEach(p => {
+                const status = p.grade > 0 ? 'Passed' : 'Failed';
+                const cls = p.grade > 0 ? 'status-passed' : 'status-failed';
+                recentProjectsHTML += `
+                    <div class="project-item">
+                        <span>${p.path.split('/').pop()}</span>
+                        <span class="${cls}">${status}</span>
+                    </div>`;
+            });
+
         document.getElementById('projects-info').innerHTML = `
             <div class="info-card">
                 <div class="stats-row">
