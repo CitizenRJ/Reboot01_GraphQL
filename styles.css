@@ -180,6 +180,12 @@ section h2 {
     font-weight: bold;
 }
 
+/* New styling for in-progress items in yellow */
+.status-progress {
+    color: #f1c40f;  /* Bright yellow */
+    font-weight: bold;
+}
+
 .graph-container {
     margin: 30px 0;
 }
