@@ -597,9 +597,9 @@ function createProjectRatioGraph(passed, failed) {
         textContent: 'Pass Rate'
     }, svg);
     
-    // Add legend
-    const legendY = centerY + radius + 20;
-    
+    // Add legend with adjusted position
+    const legendY = centerY + radius - 10;  // Moved up from +20 to -10
+
     // Passed legend
     createSvgElement('rect', {
         x: centerX - 70,
@@ -608,15 +608,15 @@ function createProjectRatioGraph(passed, failed) {
         height: '15',
         fill: passedColor
     }, svg);
-    
+
     createSvgElement('text', {
         x: centerX - 50,
         y: legendY + 12,
         'font-size': '14px',
         textContent: `Passed: ${passed} (${Math.round(passedPercent * 100)}%)`
     }, svg);
-    
-    // Failed legend
+
+    // Failed legend - ensure it's visible with raised position
     createSvgElement('rect', {
         x: centerX - 70,
         y: legendY + 25,
@@ -624,7 +624,7 @@ function createProjectRatioGraph(passed, failed) {
         height: '15',
         fill: failedColor
     }, svg);
-    
+
     createSvgElement('text', {
         x: centerX - 50,
         y: legendY + 37,
