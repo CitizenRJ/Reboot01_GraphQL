@@ -54,15 +54,50 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
         localStorage.setItem('jwtToken', token);
         
         // Extract user ID from JWT
+        let payload;
         try {
             const parts = token.split('.');
-            const payload = JSON.parse(atob(parts[1]));
+            payload = JSON.parse(atob(parts[1]));
             localStorage.setItem('userId', payload.sub);
         } catch (err) {
             console.error('Error parsing JWT token:', err);
         }
         
-        window.location.href = 'profile.html';
+        // After successful authentication in login.js
+        if (token) {
+            localStorage.setItem('jwtToken', token);
+            localStorage.setItem('userId', payload.sub);
+            
+            // Try to get user data immediately
+            const userQuery = `{
+                user {
+                    id
+                    login
+                    firstName
+                    lastName
+                }
+            }`;
+            
+            try {
+                const response = await fetch('https://learn.reboot01.com/api/graphql-engine/v1/graphql', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ query: userQuery })
+                });
+                
+                const userData = await response.json();
+                if (userData?.data?.user?.[0]) {
+                    localStorage.setItem('user', JSON.stringify(userData.data.user[0]));
+                }
+            } catch (error) {
+                console.warn('Error pre-fetching user data:', error);
+            }
+            
+            window.location.href = 'profile.html';
+        }
     } catch (error) {
         errorMessage.textContent = error.message;
         console.error('Login error:', error);

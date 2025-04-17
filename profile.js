@@ -141,16 +141,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     try {
-        // This might be null - need better handling
-        const user = JSON.parse(localStorage.getItem('user'));
-        
-        // Get userId even if user object is null
+        // Add this after getting userId
+        let user = JSON.parse(localStorage.getItem('user'));
         const userId = user?.id || localStorage.getItem('userId');
+
+        // Fall back to fetching user if not in localStorage
+        if (!user && userId) {
+            try {
+                const userQuery = `{
+                    user {
+                        id
+                        login
+                        firstName
+                        lastName
+                    }
+                }`;
+                
+                const userData = await fetchGraphQL(userQuery);
+                if (userData?.data?.user?.[0]) {
+                    user = userData.data.user[0];
+                    localStorage.setItem('user', JSON.stringify(user));
+                }
+            } catch (error) {
+                console.warn("Couldn't fetch user details:", error);
+            }
+        }
+        
         if (!userId) {
             window.location.href = 'index.html';
             return;
         }
-        
+
         // Only try to show user details if we have them
         if (user) {
             document.getElementById('user-info').innerHTML = `
