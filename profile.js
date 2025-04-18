@@ -1,9 +1,7 @@
-// Helper function to format XP values in kB
 function formatXpLabel(xp) {
     return (xp / 1000).toFixed(1) + ' kB';
 }
 
-// Helper function to create SVG elements
 function createSvgElement(type, attributes, parent) {
     const element = document.createElementNS('http://www.w3.org/2000/svg', type);
     for (const [key, value] of Object.entries(attributes)) {
@@ -19,7 +17,6 @@ function createSvgElement(type, attributes, parent) {
     return element;
 }
 
-// Add this function at the top
 function showError(containerId, message) {
     const container = document.getElementById(containerId);
     container.innerHTML = `
@@ -30,16 +27,13 @@ function showError(containerId, message) {
     `;
 }
 
-// Helper function for SVG graph initialization
 function setupSvgGraph(svgId, title, data, emptyMessage = 'No data available') {
     const svg = document.getElementById(svgId);
     const width = svg.width.baseVal.value;
     const height = svg.height.baseVal.value;
     
-    // Clear existing content
     svg.innerHTML = '';
     
-    // Check if there's data to display
     if (!data || (Array.isArray(data) && data.length === 0)) {
         createSvgElement('text', {
             x: width / 2,
@@ -51,7 +45,6 @@ function setupSvgGraph(svgId, title, data, emptyMessage = 'No data available') {
         return null;
     }
     
-    // Add title
     createSvgElement('text', {
         x: width / 2,
         y: 30,
@@ -69,21 +62,18 @@ function setupSvgGraph(svgId, title, data, emptyMessage = 'No data available') {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // Authentication check
     const token = localStorage.getItem('jwtToken');
     if (!token) {
         window.location.href = 'index.html';
         return;
     }
     
-    // Logout function
     document.getElementById('logoutBtn').addEventListener('click', () => {
         localStorage.removeItem('jwtToken');
         localStorage.removeItem('userId');
         window.location.href = 'index.html';
     });
     
-    // GraphQL query function
     async function fetchGraphQL(query, retries = 3, delay = 1000) {
         for (let attempt = 0; attempt <= retries; attempt++) {
             try {
@@ -105,21 +95,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.warn(`Attempt ${attempt+1}/${retries+1} failed:`, error.message);
                 if (attempt === retries) throw error;
                 
-                // Wait before retrying (increasing delay with each retry)
                 await new Promise(r => setTimeout(r, delay * (attempt + 1)));
             }
         }
     }
 
     async function fetchWithCache(queryName, query, userId, maxAge = 30 * 60 * 1000) {
-        // Use passed userId instead of global user.id
         const cacheKey = `graphql_${queryName}_${userId}`;
         const cached = localStorage.getItem(cacheKey);
         
         if (cached) {
             try {
                 const { data, timestamp } = JSON.parse(cached);
-                // If cache is fresh, use it
                 if (Date.now() - timestamp < maxAge) {
                     console.log(`Using cached data for ${queryName}`);
                     return { data };
@@ -129,7 +116,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
         
-        // Otherwise fetch fresh data
         const result = await fetchGraphQL(query);
         if (result?.data) {
             localStorage.setItem(cacheKey, JSON.stringify({
@@ -141,11 +127,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     try {
-        // Add this after getting userId
         let user = JSON.parse(localStorage.getItem('user'));
         const userId = user?.id || localStorage.getItem('userId');
 
-        // Fall back to fetching user if not in localStorage
         if (!user && userId) {
             try {
                 const userQuery = `{
@@ -172,7 +156,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        // Only try to show user details if we have them
         if (user) {
             document.getElementById('user-info').innerHTML = `
                 <div class="info-card">
@@ -182,7 +165,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </div>
             `;
         } else {
-            // Just show the userId if that's all we have
             document.getElementById('user-info').innerHTML = `
                 <div class="info-card">
                     <p><strong>User ID:</strong> ${userId}</p>
@@ -191,7 +173,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             `;
         }
         
-        // 2. QUERY WITH ARGUMENTS - Get XP data for this user
         const xpQuery = `{
             transaction(
                 where: {
@@ -208,18 +189,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }`;
         
-        // Then use userId (not user.id) in your fetch calls
         const xpData = await fetchWithCache('xp', xpQuery, userId);
         if (!xpData || !xpData.data) throw new Error('Failed to fetch XP data');
         
         const transactions = xpData.data.transaction;
         
-        // Calculate total XP
         const totalXP = transactions.reduce((sum, t) => sum + t.amount, 0);
         
-        // Group XP by project path
         const xpByProject = transactions.reduce((acc, t) => {
-            // Extract project name from path
             const pathParts = t.path.split('/');
             const projectName = pathParts[pathParts.length - 1];
             
@@ -230,7 +207,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             return acc;
         }, {});
         
-        // Display XP info
         let xpByProjectHTML = '';
         Object.entries(xpByProject)
             .sort((a, b) => b[1] - a[1])
@@ -247,7 +223,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
         `;
         
-        // 3. NESTED QUERY – only fetch non‐null grades (i.e. completed attempts)
         const progressQuery = `{
             progress(
                 where: {
@@ -272,7 +247,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const progress = progressData.data.progress;
 
-        // Dedupe to latest per object
         const latestByObj = progress.reduce((acc, p) => {
             const key = p.object.id;
             if (!acc[key] || new Date(p.updatedAt) > new Date(acc[key].updatedAt)) {
@@ -289,7 +263,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const totalDone    = passedProjects + failedProjects;
         const passRate     = totalDone ? Math.round(passedProjects/totalDone*100) : 0;
 
-        // Update DOM with pass/fail stats
         function setElementContent(id, content) {
             const element = document.getElementById(id);
             if (element) element.textContent = content;
@@ -299,7 +272,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         setElementContent('failed-count', failedProjects);
         setElementContent('pass-rate', passRate + '%');
 
-        // Populate recent projects list
         const recentContainer = document.getElementById('recent-projects');
         recentContainer.innerHTML = '';  // clear loader
         uniqueProgress
@@ -309,7 +281,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             const div = document.createElement('div');
             div.className = 'project-item';
             
-            // Handle null grades as "In Progress"
             const status = p.grade === null ? 'In Progress' : 
                           p.grade > 0 ? 'Passed' : 'Failed';
             const cls = p.grade === null ? 'status-progress' : 
@@ -321,23 +292,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             recentContainer.appendChild(div);
           });
 
-        // Lazy load charts AFTER the critical content is displayed
         setTimeout(() => {
             try {
                 createXpProgressGraph(transactions);
                 createProjectRatioGraph(passedProjects, failedProjects);
             } catch (err) {
                 console.error("Chart rendering error:", err);
-                // Display fallback message in chart containers
                 document.getElementById('xp-time-graph').innerHTML = 
                     '<text x="50%" y="50%" text-anchor="middle">Charts unavailable. Please reload.</text>';
                 document.getElementById('project-ratio-graph').innerHTML = 
                     '<text x="50%" y="50%" text-anchor="middle">Charts unavailable. Please reload.</text>';
             }
-        }, 100); // Small delay after main content loads
+        }, 100);
 
         document.getElementById('refresh-btn')?.addEventListener('click', () => {
-            // Clear specific cache items
             localStorage.removeItem(`graphql_xp_${userId}`);
             location.reload();
         });
@@ -351,12 +319,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// SVG Graph 1: XP Progression Over Time
 function createXpProgressGraph(transactions) {
-    // Use the existing utility function
     const setup = setupSvgGraph(
         'xp-time-graph',
-        '',  // Empty title since it's in HTML
+        '',
         transactions?.length > 0 ? transactions : null,
         'No XP data available'
     );
@@ -364,7 +330,6 @@ function createXpProgressGraph(transactions) {
     if (!setup) return;
     const { svg, width, height } = setup;
     
-    // Calculate dataPoints
     let cumulativeXP = 0;
     const dataPoints = transactions.map(t => {
         cumulativeXP += t.amount;
@@ -376,12 +341,10 @@ function createXpProgressGraph(transactions) {
     
     const padding = { left: 80, right: 40, top: 40, bottom: 60 };
     
-    // Sort transactions and calculate cumulative XP
     const minDate = dataPoints[0].date;
     const maxDate = dataPoints[dataPoints.length - 1].date;
     const maxXP = dataPoints[dataPoints.length - 1].xp;
     
-    // Update scale functions for new padding
     const xScale = (date) => {
         const range = maxDate - minDate;
         return padding.left + ((date - minDate) / range) * (width - padding.left - padding.right);
@@ -391,7 +354,6 @@ function createXpProgressGraph(transactions) {
         return height - padding.bottom - (xp / maxXP) * (height - padding.top - padding.bottom);
     };
     
-    // Create axes
     createSvgElement('line', {
         x1: padding.left,
         y1: height - padding.bottom,
@@ -410,7 +372,6 @@ function createXpProgressGraph(transactions) {
         'stroke-width': '2'
     }, svg);
     
-    // Add axis labels
     createSvgElement('text', {
         x: width / 2,
         y: height - 15,
@@ -418,7 +379,6 @@ function createXpProgressGraph(transactions) {
         textContent: 'Time'
     }, svg);
     
-    // Position "Total XP" with plenty of space
     createSvgElement('text', {
         x: 20,
         y: height / 2,
@@ -428,26 +388,21 @@ function createXpProgressGraph(transactions) {
         textContent: 'Total XP'
     }, svg);
     
-    // X-axis (time) - Add quarter labels instead of monthly
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const dateRange = maxDate - minDate;
     const dayRange = dateRange / (1000 * 60 * 60 * 24);
 
-    // Generate quarterly tick marks (every 3 months)
     let currentDate = new Date(minDate);
     currentDate.setDate(1); // Move to first of month
 
-    // Adjust to start at beginning of a quarter (Jan, Apr, Jul, Oct)
     const monthOffset = currentDate.getMonth() % 3;
     if (monthOffset !== 0) {
         currentDate.setMonth(currentDate.getMonth() + (3 - monthOffset));
     }
 
-    // Create tick marks and labels for each quarter
     while (currentDate <= maxDate) {
         const x = xScale(currentDate);
         
-        // Tick mark
         createSvgElement('line', {
             x1: x,
             y1: height - padding.bottom,
@@ -456,7 +411,6 @@ function createXpProgressGraph(transactions) {
             stroke: '#333'
         }, svg);
         
-        // Quarter label
         createSvgElement('text', {
             x: x,
             y: height - padding.bottom + 20,
@@ -465,7 +419,6 @@ function createXpProgressGraph(transactions) {
             textContent: `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`
         }, svg);
         
-        // Vertical grid line (lighter)
         createSvgElement('line', {
             x1: x,
             y1: padding.top,
@@ -475,17 +428,14 @@ function createXpProgressGraph(transactions) {
             'stroke-width': '1'
         }, svg);
         
-        // Move to next quarter (3 months)
         currentDate.setMonth(currentDate.getMonth() + 3);
     }
 
-    // Y-axis (XP) - Add formatted values
     const yTicks = 5;
     for (let i = 0; i <= yTicks; i++) {
         const xpValue = (maxXP / yTicks) * i;
         const y = yScale(xpValue);
         
-        // Tick mark
         createSvgElement('line', {
             x1: padding.left,
             y1: y,
@@ -494,7 +444,6 @@ function createXpProgressGraph(transactions) {
             stroke: '#333'
         }, svg);
         
-        // Label with kB format
         createSvgElement('text', {
             x: padding.left - 10,
             y: y + 4,
@@ -503,7 +452,6 @@ function createXpProgressGraph(transactions) {
             textContent: formatXpLabel(xpValue)
         }, svg);
         
-        // Horizontal grid line
         createSvgElement('line', {
             x1: padding.left,
             y1: y,
@@ -514,7 +462,6 @@ function createXpProgressGraph(transactions) {
         }, svg);
     }
     
-    // Create line path
     let pathData = '';
     dataPoints.forEach((point, i) => {
         const x = xScale(point.date);
@@ -522,13 +469,11 @@ function createXpProgressGraph(transactions) {
         pathData += (i === 0) ? `M ${x} ${y}` : ` L ${x} ${y}`;
     });
     
-    // Area fill under the line
     createSvgElement('path', {
         d: `${pathData} L ${xScale(maxDate)} ${height - padding.bottom} L ${xScale(minDate)} ${height - padding.bottom} Z`,
         fill: 'rgba(52, 152, 219, 0.2)'
     }, svg);
     
-    // Line path
     createSvgElement('path', {
         d: pathData,
         fill: 'none',
@@ -537,14 +482,12 @@ function createXpProgressGraph(transactions) {
     }, svg);
 }
 
-// SVG Graph 2: Project Pass/Fail Distribution
 function createProjectRatioGraph(passed, failed) {
     const total = passed + failed;
     
-    // Initialize SVG WITHOUT title (since it's already in HTML)
     const setup = setupSvgGraph(
         'project-ratio-graph',
-        '',  // Empty string to skip title
+        '',
         total > 0 ? { passed, failed } : null,
         'No project data available'
     );
@@ -556,19 +499,15 @@ function createProjectRatioGraph(passed, failed) {
     const centerY = height / 2;
     const radius = Math.min(width, height) / 2 - 40;
     
-    // Calculate angles for pie chart
     const passedPercent = passed / total;
     const failedPercent = failed / total;
     const passedAngle = passedPercent * 360;
     
-    // Colors
     const passedColor = '#2ecc71';
     const failedColor = '#e74c3c';
     
-    // Create donut chart
     const donutWidth = radius * 0.4;
     
-    // Inner circle
     createSvgElement('circle', {
         cx: centerX,
         cy: centerY,
@@ -576,7 +515,6 @@ function createProjectRatioGraph(passed, failed) {
         fill: '#f5f5f5'
     }, svg);
     
-    // Function to calculate SVG arc path
     function getArcPath(startAngle, endAngle, isLargeArc) {
         const startRad = (startAngle - 90) * Math.PI / 180;
         const endRad = (endAngle - 90) * Math.PI / 180;
@@ -595,7 +533,6 @@ function createProjectRatioGraph(passed, failed) {
                 L ${x3} ${y3} A ${radius - donutWidth} ${radius - donutWidth} 0 ${isLargeArc} 0 ${x4} ${y4} Z`;
     }
     
-    // Passed segment
     if (passed > 0) {
         createSvgElement('path', {
             d: getArcPath(0, passedAngle, passedAngle > 180 ? 1 : 0),
@@ -603,7 +540,6 @@ function createProjectRatioGraph(passed, failed) {
         }, svg);
     }
     
-    // Failed segment
     if (failed > 0) {
         createSvgElement('path', {
             d: getArcPath(passedAngle, 360, (360 - passedAngle) > 180 ? 1 : 0),
@@ -611,7 +547,6 @@ function createProjectRatioGraph(passed, failed) {
         }, svg);
     }
     
-    // Calculate label positions
     function calculateLabelPosition(centerX, centerY, radius, angleDegrees) {
         const angleRad = (angleDegrees - 90) * Math.PI / 180;
         return {
@@ -629,8 +564,7 @@ function createProjectRatioGraph(passed, failed) {
     const failedLabelX = centerX + (radius - donutWidth / 2) * Math.cos(failedLabelRad);
     const failedLabelY = centerY + (radius - donutWidth / 2) * Math.sin(failedLabelRad);
     
-    // Add data labels directly on segments
-    if (passedPercent > 0.05) {  // Lower threshold to make label more likely to appear
+    if (passedPercent > 0.05) {
         createSvgElement('text', {
             x: passedLabelPos.x,
             y: passedLabelPos.y,
@@ -638,12 +572,11 @@ function createProjectRatioGraph(passed, failed) {
             'dominant-baseline': 'middle',
             'font-size': '14px',
             'font-weight': 'bold',
-            'fill': 'black',  // Changed from white to black
+            'fill': 'black',
             textContent: `${Math.round(passedPercent * 100)}% pass`  // Added "pass"
         }, svg);
     }
     
-    // For larger segments (>20%), place label inside
     if (failedPercent >= 0.20) {
         createSvgElement('text', {
             x: failedLabelX,
@@ -656,15 +589,12 @@ function createProjectRatioGraph(passed, failed) {
             textContent: `${Math.round(failedPercent * 100)}% fail`
         }, svg);
     }
-    // For smaller segments (<20%), place label outside with connector
     else if (failedPercent > 0) {
-        // Calculate position outside the segment
         const outsideLabelAngle = failedLabelAngle;
         const outsideLabelRad = outsideLabelAngle * Math.PI / 180;
         const outsideLabelX = centerX + (radius + 25) * Math.cos(outsideLabelRad);
         const outsideLabelY = centerY + (radius + 25) * Math.sin(outsideLabelRad);
         
-        // Add connector line
         createSvgElement('line', {
             x1: centerX + radius * Math.cos(outsideLabelRad) * 0.8,
             y1: centerY + radius * Math.sin(outsideLabelRad) * 0.8,
@@ -674,7 +604,6 @@ function createProjectRatioGraph(passed, failed) {
             'stroke-width': '1'
         }, svg);
         
-        // Add outside label
         createSvgElement('text', {
             x: outsideLabelX,
             y: outsideLabelY,
